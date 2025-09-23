@@ -207,16 +207,6 @@ def filter_data(df: pd.DataFrame) -> pd.DataFrame:
         if kab_choice != "All":
             df = df[df["nama_kab"] == kab_choice]
 
-        kecs = ["All"] + sorted(df["nama_kec"].dropna().unique().tolist())
-        kec_choice = st.selectbox("Pilih Kecamatan", kecs)
-        if kec_choice != "All":
-            df = df[df["nama_kec"] == kec_choice]
-
-        desas = ["All"] + sorted(df["nama_desa"].dropna().unique().tolist())
-        desa_choice = st.selectbox("Pilih Desa", desas)
-        if desa_choice != "All":
-            df = df[df["nama_desa"] == desa_choice]
-
         tops = ["All"] + sorted(df["topografi_wilayah_desakelurahan"].dropna().unique().tolist())
         topo_choice = st.selectbox("Pilih Topografi", tops)
         if topo_choice != "All":
