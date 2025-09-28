@@ -550,6 +550,17 @@ def show_ml(df: pd.DataFrame, meta: Dict):
     else:
         st.info("Tidak ada data untuk Top 10.")
 
+    # 🔽 Tambahan: tampilkan 10 kecamatan terendah
+    st.subheader("Bottom 10 Kecamatan (Skor Kelayakan Terendah)")
+    bottom10 = plot_df.tail(10)
+    if not bottom10.empty:
+        fig = px.bar(bottom10, x="nama_kec", y="skor_kelayakan", color="nama_prov",
+                     title="Bottom 10 Kecamatan (Skor Kelayakan Terendah)")
+        st.plotly_chart(fig, use_container_width=True, key="ml_bottom10")
+        st.caption("10 kecamatan dengan skor terendah (akses relatif paling sulit).")
+    else:
+        st.info("Tidak ada data untuk Bottom 10.")
+
     st.subheader("Cluster Kelayakan (3 kelompok)")
     fig2 = px.scatter(plot_df, x=plot_df.index, y="skor_kelayakan", color=plot_df["cluster"].astype(str),
                       hover_data=["nama_prov", "nama_kab", "nama_kec"],
