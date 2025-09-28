@@ -218,6 +218,7 @@ def show_overview(df: pd.DataFrame, meta: Dict):
     - counts (prov/kab/kec/total rows)
     - indeks kelayakan (adaptive)
     - Top 3 fasilitas pendidikan & kesehatan (berdasarkan rata-rata skor kemudahan numeric)
+    - Top & Bottom 10 prov/kab/kec berdasarkan skor
     - jenis permukaan jalan per provinsi (split jika banyak provinsi)
     """
     st.header("📊 Overview")
@@ -268,61 +269,23 @@ def show_overview(df: pd.DataFrame, meta: Dict):
         bcol, wcol = st.columns(2)
         bcol.metric(f"{group_label} Terbaik", str(best), f"{ranking.iloc[0]:.3f}")
         wcol.metric(f"{group_label} Terburuk", str(worst), f"{ranking.iloc[-1]:.3f}")
+
+        # Top 10
         fig = px.bar(ranking.head(10)[::-1], orientation="h",
                      labels={"x": "Skor (rata-rata proporsi sangatmudah)", "index": group_col},
-                     title=f"Top 10 {group_label} (Skor Kelayakan)")
-        st.plotly_chart(fig, use_container_width=True, key="overview_ranking")
+                     title=f"Top 10 {group_label} (Skor Kelayakan Tertinggi)")
+        st.plotly_chart(fig, use_container_width=True, key="overview_ranking_top")
         st.caption("Interpretasi: semakin mendekati 1 berarti proporsi fasilitas 'sangatmudah' lebih banyak → lebih layak.")
 
-    # Top 3 Facilities — Pendidikan & Kesehatan
-    st.subheader("Top 3 Fasilitas — Pendidikan & Kesehatan (berdasarkan skor rata-rata kemudahan numeric)")
-    # compute mean per kemudahan_num column
-    kem_num_cols = [c for c in meta.get("kemudahan_num", []) if c in df.columns]
-    # derive mapping from kemudahan_mencapai_*_num back to base name
-    if kem_num_cols:
-        # mapping: base -> mean score
-        facility_scores = {}
-        for num_col in kem_num_cols:
-            # num_col example: kemudahan_mencapai_paud_num -> base 'paud'
-            base = num_col.replace("kemudahan_mencapai_", "").replace("_num", "")
-            mean_score = df[num_col].mean()
-            facility_scores[base] = mean_score
+        # Bottom 10
+        fig2 = px.bar(ranking.tail(10)[::-1], orientation="h",
+                      labels={"x": "Skor (rata-rata proporsi sangatmudah)", "index": group_col},
+                      title=f"Bottom 10 {group_label} (Skor Kelayakan Terendah)")
+        st.plotly_chart(fig2, use_container_width=True, key="overview_ranking_bottom")
+        st.caption("📌 Menampilkan 10 wilayah dengan skor kelayakan terendah → akses relatif paling sulit.")
 
-        # split into pend & kes using keywords
-        pend_scores = {k: v for k, v in facility_scores.items() if any(pk in k for pk in PEND_KEYWORDS)}
-        kes_scores = {k: v for k, v in facility_scores.items() if any(kk in k for kk in KES_KEYWORDS)}
-
-        # get top3
-        def top_n_dict(d: Dict[str, float], n=3):
-            items = sorted(d.items(), key=lambda x: x[1], reverse=True)
-            return items[:n]
-
-        top3_pend = top_n_dict(pend_scores, 3)
-        top3_kes = top_n_dict(kes_scores, 3)
-
-        # display
-        colp, colk = st.columns(2)
-        with colp:
-            st.markdown("**Top 3 (Pendidikan)**")
-            if top3_pend:
-                for i, (fac, sc) in enumerate(top3_pend, start=1):
-                    pretty = label(f"kemudahan_mencapai_{fac}")
-                    st.write(f"{i}. {pretty} — Rata-rata skor numeric: {sc:.3f}")
-            else:
-                st.write("Tidak ada data fasilitas pendidikan yang cukup.")
-        with colk:
-            st.markdown("**Top 3 (Kesehatan)**")
-            if top3_kes:
-                for i, (fac, sc) in enumerate(top3_kes, start=1):
-                    pretty = label(f"kemudahan_mencapai_{fac}")
-                    st.write(f"{i}. {pretty} — Rata-rata skor numeric: {sc:.3f}")
-            else:
-                st.write("Tidak ada data fasilitas kesehatan yang cukup.")
-        st.caption("Catatan: skor numeric 4 = 'sangatmudah', 0 = 'tidakberlaku'. Top3 berarti rata-rata skor numeric tertinggi.")
-    else:
-        st.info("Tidak ada kolom kemudahan numeric untuk menghitung Top 3 fasilitas.")
-
-    # jenis permukaan jalan (simple)
+    
+    # jenis permukaan jalan
     st.subheader("Jenis Permukaan Jalan per Provinsi")
     if "jenis_permukaan_jalan" in df.columns:
         jalan = df.groupby(["nama_prov", "jenis_permukaan_jalan"]).size().reset_index(name="jumlah")
