@@ -454,6 +454,7 @@ def show_ml(df: pd.DataFrame, meta: Dict):
     - aggregate per kecamatan,
     - build skor_kelayakan (kombinasi kemudahan numeric & jarak normalisasi),
     - KMeans clustering (3 cluster).
+    - tampilkan silhouette score dan rentang nilai per cluster.
     ML dijalankan pada keseluruhan dataset (bukan subset filter).
     """
     st.header("🤖 Machine Learning (Per Kecamatan)")
@@ -476,10 +477,7 @@ def show_ml(df: pd.DataFrame, meta: Dict):
         return
 
     # kem_score (0..4) -> kem_norm (0..1)
-    if use_kem:
-        kem_score = agg[use_kem].mean(axis=1)
-    else:
-        kem_score = pd.Series(0, index=agg.index)
+    kem_score = agg[use_kem].mean(axis=1) if use_kem else pd.Series(0, index=agg.index)
 
     # jar_norm: normalize mean distance per kecamatan to 0..1
     if use_jar:
@@ -504,6 +502,7 @@ def show_ml(df: pd.DataFrame, meta: Dict):
 
     plot_df = agg.reset_index().sort_values("skor_kelayakan", ascending=False).reset_index(drop=True)
 
+    # TOP 10
     st.subheader("Top 10 Kecamatan (Skor Kelayakan Tertinggi)")
     top10 = plot_df.head(10)
     if not top10.empty:
@@ -513,7 +512,7 @@ def show_ml(df: pd.DataFrame, meta: Dict):
     else:
         st.info("Tidak ada data untuk Top 10.")
 
-    # 🔽 Tambahan: tampilkan 10 kecamatan terendah
+    # BOTTOM 10
     st.subheader("Bottom 10 Kecamatan (Skor Kelayakan Terendah)")
     bottom10 = plot_df.tail(10)
     if not bottom10.empty:
@@ -524,20 +523,40 @@ def show_ml(df: pd.DataFrame, meta: Dict):
     else:
         st.info("Tidak ada data untuk Bottom 10.")
 
+    # SCATTER CLUSTERING
     st.subheader("Cluster Kelayakan (3 kelompok)")
-    fig2 = px.scatter(plot_df, x=plot_df.index, y="skor_kelayakan", color=plot_df["cluster"].astype(str),
+    fig2 = px.scatter(plot_df, x=plot_df.index, y="skor_kelayakan",
+                      color=plot_df["cluster"].astype(str),
                       hover_data=["nama_prov", "nama_kab", "nama_kec"],
                       labels={"x": "Index (urut by skor)", "y": "Skor Kelayakan"},
                       title="Cluster Kelayakan (3 kelompok)")
     st.plotly_chart(fig2, use_container_width=True, key="ml_cluster")
-    st.caption("Cluster 0/1/2 memisahkan kecamatan menurut skor. Gunakan output tabel untuk melihat kecamatan per cluster.")
+    st.caption("Cluster 0/1/2 memisahkan kecamatan menurut skor kelayakan. Cluster 0 biasanya paling rendah, cluster 2 paling tinggi.")
 
+    # DISTRIBUSI CLUSTER
     st.write("Distribusi cluster (jumlah kecamatan per cluster):")
     st.write(plot_df["cluster"].value_counts().sort_index())
 
+    # Tambahan: Silhouette Score
+    from sklearn.metrics import silhouette_score
+    try:
+        sil_score = silhouette_score(X, labels)
+        st.metric("Silhouette Score", f"{sil_score:.3f}")
+        st.caption("Nilai mendekati 1 → cluster lebih terpisah dengan baik, mendekati 0 → cluster tumpang tindih.")
+    except Exception as e:
+        st.warning(f"Gagal menghitung Silhouette Score: {e}")
+
+    # Rentang skor tiap cluster
+    st.subheader("Rentang Skor Kelayakan per Cluster")
+    summary = plot_df.groupby("cluster")["skor_kelayakan"].agg(["min", "max", "mean", "count"]).reset_index()
+    st.dataframe(summary, use_container_width=True)
+    st.caption("Rentang menunjukkan nilai minimum, maksimum, dan rata-rata skor per cluster. Cluster dengan nilai lebih tinggi = wilayah lebih layak.")
+
+    # EXPORT
     if st.button("Export Top 10 Kecamatan ke CSV (ML)"):
         csv = top10.to_csv(index=False)
         st.download_button("Download top10_ml.csv", csv, "top10_kecamatan_ml.csv", "text/csv")
+
 
 # -----------------------------
 # MAIN
